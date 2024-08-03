@@ -79,10 +79,10 @@ def calculate_metrics(data):
     adf_p_value = adf_test[1]
 
     st.subheader('Technical and Statistical Metrics')
-    st.write(f"**Sharpe Ratio**: {sharpe_ratio:.2f} (A measure of risk-adjusted return. A higher value indicates better risk-adjusted performance.)")
-    st.write(f"**Volatility (Annualized)**: {volatility:.2f} (A measure of price variability over time. Higher volatility indicates higher risk.)")
-    st.write(f"**ADF Statistic**: {adf_statistic:.2f} (Used to test if a time series is stationary. A more negative value indicates stronger rejection of non-stationarity.)")
-    st.write(f"**ADF p-value**: {adf_p_value:.2f} (Probability that the time series is non-stationary. A lower value indicates stronger evidence against non-stationarity.)")
+    st.write(f"**Sharpe Ratio**: {sharpe_ratio:.2f} ")
+    st.write(f"**Volatility (Annualized)**: {volatility:.2f} ")
+    st.write(f"**ADF Statistic**: {adf_statistic:.2f} ")
+    st.write(f"**ADF p-value**: {adf_p_value:.2f} ")
 
 # Description tab
 def show_description():
@@ -106,9 +106,10 @@ def show_description():
     \]
 
     ### Financial Analysis
-    - **Sharpe Ratio**: Measures the risk-adjusted return. 
-    - **Volatility**: Indicates the degree of price variation and associated risk.
-    - **ADF Test**: Indicates the stationarity of the series.
+    - **Sharpe Ratio**: A measure of risk-adjusted return. A higher value indicates better risk-adjusted performance.
+    - **Volatility**: Indicates the degree of price variation and associated risk. A measure of price variability over time. Higher volatility indicates higher risk.
+    - **ADF Test**: Used to test if a time series is stationary. A more negative value indicates stronger rejection of non-stationarity.
+    - **ADF p-value**: Probability that the time series is non-stationary. A lower value indicates stronger evidence against non-stationarity.
 
     This project aims to provide investors and analysts with an advanced toolset for making data-driven decisions based on financial and statistical analyses.
     """)
