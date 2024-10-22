@@ -16,8 +16,10 @@ def load_data(ticker):
     return data
 
 def preprocess_data(data):
+    # Ensure 'Date' is in datetime format
+    data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
     data = data[['Date', 'Adj Close']].rename(columns={'Date': 'ds', 'Adj Close': 'y'})
-    # Convert to numeric and handle errors, then drop NaNs
+    # Convert 'y' to numeric and handle NaNs
     data['y'] = pd.to_numeric(data['y'], errors='coerce')
     data.dropna(subset=['y'], inplace=True)
     return data
@@ -138,7 +140,7 @@ def main():
 
         # Display raw data in a more readable format
         st.subheader('Raw Data Overview')
-        st.dataframe(data.tail(10).style.format({'Date': '{:%Y-%m-%d}', 'Adj Close': '${:.2f}'}))
+        st.dataframe(data.tail(10).style.format({'ds': '{:%Y-%m-%d}', 'y': '${:.2f}'}))
 
         # Preprocess data
         data = preprocess_data(data)
