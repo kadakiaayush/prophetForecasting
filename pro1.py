@@ -17,6 +17,9 @@ def load_data(ticker):
 
 def preprocess_data(data):
     data = data[['Date', 'Adj Close']].rename(columns={'Date': 'ds', 'Adj Close': 'y'})
+    # Convert to numeric and handle errors, then drop NaNs
+    data['y'] = pd.to_numeric(data['y'], errors='coerce')
+    data.dropna(subset=['y'], inplace=True)
     return data
 
 # Fit Prophet model
@@ -117,7 +120,6 @@ def show_description():
 # Streamlit app
 def main():
     st.set_page_config(page_title="Advanced S&P 500 Forecasting", layout="wide")
-    
 
     st.title('Advanced Stock Market Forecasting with Prophet')
     menu = ["Forecasting", "Project Description"]
