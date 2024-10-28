@@ -12,16 +12,24 @@ from statsmodels.tsa.stattools import adfuller
 @st.cache_data
 def load_data(ticker):
     data = yf.download(ticker, start="2000-01-01", end=datetime.today().strftime('%Y-%m-%d'))
-    data.reset_index(inplace=True)
-    return data
+    if data is not None and 'Adj Close' in data.columns:
+        data.reset_index(inplace=True)
+        return data
+    else:
+        st.error("Data loading failed or 'Adj Close' column not found.")
+        return pd.DataFrame()
 
 def preprocess_data(data):
     # Ensure 'Date' is in datetime format
     data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-    data = data[['Date', 'Adj Close']].rename(columns={'Date': 'ds', 'Adj Close': 'y'})
-    # Convert 'y' to numeric and handle NaNs
-    data['y'] = pd.to_numeric(data['y'], errors='coerce')
-    data.dropna(subset=['y'], inplace=True)
+    # Check and rename columns
+    if 'Adj Close' in data.columns:
+        data = data[['Date', 'Adj Close']].rename(columns={'Date': 'ds', 'Adj Close': 'y'})
+        # Convert 'y' to numeric and handle NaNs
+        data['y'] = pd.to_numeric(data['y'], errors='coerce')
+        data.dropna(subset=['y'], inplace=True)
+    else:
+        st.error("Required column 'Adj Close' is missing.")
     return data
 
 # Fit Prophet model
@@ -84,15 +92,15 @@ def calculate_metrics(data):
     adf_p_value = adf_test[1]
 
     st.subheader('Technical and Statistical Metrics')
-    st.write(f"**Sharpe Ratio**: {sharpe_ratio:.2f} ")
-    st.write(f"**Volatility (Annualized)**: {volatility:.2f} ")
-    st.write(f"**ADF Statistic**: {adf_statistic:.2f} ")
-    st.write(f"**ADF p-value**: {adf_p_value:.2f} ")
+    st.write(f"**Sharpe Ratio**: {sharpe_ratio:.2f}")
+    st.write(f"**Volatility (Annualized)**: {volatility:.2f}")
+    st.write(f"**ADF Statistic**: {adf_statistic:.2f}")
+    st.write(f"**ADF p-value**: {adf_p_value:.2f}")
 
 # Description tab
 def show_description():
     st.markdown("""
-    ## Project Description
+     ## Project Description
     This project offers a comprehensive analysis of the S&P 500, NASDAQ, & Dow Jones indices, featuring time series forecasting using the Prophet model and various financial metrics. The analysis includes:
 
     - **Trend Analysis**: Understanding long-term price movements.
@@ -119,52 +127,54 @@ def show_description():
     This project aims to provide investors and analysts with an advanced toolset for making data-driven decisions based on financial and statistical analyses.
     """)
 
+
 # Streamlit app
 def main():
-    st.set_page_config(page_title="Advanced S&P 500 Forecasting", layout="wide")
-
+    st.set_page_config(page_title="Advanced Stock Forecasting", layout="wide")
     st.title('Advanced Stock Market Forecasting with Prophet')
     menu = ["Forecasting", "Project Description"]
     choice = st.sidebar.selectbox("Menu", menu)
 
     if choice == "Forecasting":
         st.subheader("Stock Forecasting")
-
-        # Input for ticker symbol
-        ticker = st.text_input('Enter ticker symbol (e.g. ^GSPC for S&P 500, ^IXIC for NASDAQ, ^DJI for Dow Jones):', value='^GSPC')
+        ticker = st.text_input('Enter ticker symbol (e.g., ^GSPC for S&P 500):', value='^GSPC')
 
         # Load and display data
         data_load_state = st.text('Loading data...')
         data = load_data(ticker)
         data_load_state.text('Loading data... done!')
 
-        # Display raw data in a more readable format
-        st.subheader('Raw Data Overview')
-        st.dataframe(data.tail(10).style.format({'ds': '{:%Y-%m-%d}', 'y': '${:.2f}'}))
+        if not data.empty:
+            st.subheader('Raw Data Overview')
+            st.dataframe(data.tail(10))
 
-        # Preprocess data
-        data = preprocess_data(data)
+            # Preprocess data
+            data = preprocess_data(data)
 
-        # Fit Prophet model
-        model = fit_prophet_model(data)
+            # Check if data is processed correctly
+            if not data.empty:
+                model = fit_prophet_model(data)
 
-        # Forecasting
-        forecast_horizon = st.slider('Forecast horizon (days):', min_value=30, max_value=365*5, value=365*2)
-        forecast = make_forecasts(model, periods=forecast_horizon)
+                # Forecasting
+                forecast_horizon = st.slider('Forecast horizon (days):', min_value=30, max_value=365 * 5, value=365 * 2)
+                forecast = make_forecasts(model, periods=forecast_horizon)
 
-        # Display forecasts
-        st.subheader('Forecasts')
-        st.write(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail())
+                # Display forecasts
+                st.subheader('Forecasts')
+                st.write(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail())
 
-        # Plot interactive forecast
-        st.subheader('Interactive Forecast Plot with Technical Indicators')
-        plot_interactive_forecast(data, forecast)
+                # Plot interactive forecast
+                st.subheader('Interactive Forecast Plot with Technical Indicators')
+                plot_interactive_forecast(data, forecast)
 
-        # Display metrics and technical indicators
-        calculate_metrics(data)
+                # Display metrics and technical indicators
+                calculate_metrics(data)
+            else:
+                st.error("Processed data is empty. Please check the data source or preprocessing steps.")
 
     elif choice == "Project Description":
         show_description()
 
 if __name__ == '__main__':
     main()
+
