@@ -32,15 +32,25 @@ def load_data(ticker):
         return pd.DataFrame()
 
 def preprocess_data(data):
-    if 'Date' not in data.columns or 'Close' not in data.columns:
-        st.error("Required columns 'Date' or 'Close' are missing.")
+    if data.empty:
+        st.error("Data is empty. Cannot preprocess.")
         return pd.DataFrame()
 
     try:
+        # Ensure 'Date' and 'Close' columns exist
+        if 'Date' not in data.columns or 'Close' not in data.columns:
+            st.error("Required columns 'Date' or 'Close' are missing.")
+            return pd.DataFrame()
+
+        # Convert 'Date' to datetime
         data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+
+        # Filter necessary columns and rename them
         data = data[['Date', 'Close']].rename(columns={'Date': 'ds', 'Close': 'y'})
+
+        # Ensure 'y' is numeric and drop NaN values
         data['y'] = pd.to_numeric(data['y'], errors='coerce')
-        data.dropna(inplace=True)
+        data.dropna(subset=['y'], inplace=True)
 
         if data.empty:
             st.error("No valid data available after preprocessing. Please check the data source.")
@@ -81,8 +91,8 @@ def plot_interactive_forecast(data, forecast):
     rolling_std = data['y'].rolling(window=20).std()
     upper_band = rolling_mean + (rolling_std * 2)
     lower_band = rolling_mean - (rolling_std * 2)
-    fig.add_trace(go.Scatter(x=data['ds'], y=upper_band, mode='lines', name='Upper Bollinger Band', line=dict(color='orange')), row=1, col=1)
-    fig.add_trace(go.Scatter(x=data['ds'], y=lower_band, mode='lines', name='Lower Bollinger Band', line=dict(color='green')), row=1, col=1)
+    fig.add_trace(go.Scatter(x=data['ds'], y=upper_band, mode='lines', name='Upper Bollinger Band', line=dict(color='orange')), row=2, col=1)
+    fig.add_trace(go.Scatter(x=data['ds'], y=lower_band, mode='lines', name='Lower Bollinger Band', line=dict(color='green')), row=2, col=1)
 
     # RSI Calculation
     delta = data['y'].diff()
@@ -116,10 +126,10 @@ def main():
             st.dataframe(data.tail(10))
 
             # Preprocess data
-            data = preprocess_data(data)
+            preprocessed_data = preprocess_data(data)
 
-            if not data.empty:
-                model = fit_prophet_model(data)
+            if not preprocessed_data.empty:
+                model = fit_prophet_model(preprocessed_data)
 
                 # Forecasting
                 forecast_horizon = st.slider('Forecast horizon (days):', min_value=30, max_value=365 * 5, value=365 * 2)
@@ -131,7 +141,7 @@ def main():
 
                 # Plot interactive forecast
                 st.subheader('Interactive Forecast Plot with Technical Indicators')
-                plot_interactive_forecast(data, forecast)
+                plot_interactive_forecast(preprocessed_data, forecast)
             else:
                 st.error("Processed data is empty. Please check the data source or preprocessing steps.")
 
