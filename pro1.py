@@ -11,25 +11,42 @@ from statsmodels.tsa.stattools import adfuller
 # Load and preprocess data
 @st.cache_data
 def load_data(ticker):
-    data = yf.download(ticker, start="2000-01-01", end=datetime.today().strftime('%Y-%m-%d'))
-    if data is not None and 'Adj Close' in data.columns:
-        data.reset_index(inplace=True)
-        return data
-    else:
-        st.error("Data loading failed or 'Adj Close' column not found.")
+    try:
+        # Fetch data from Yahoo Finance
+        data = yf.download(ticker, start="2000-01-01", end=datetime.today().strftime('%Y-%m-%d'))
+
+        if data.empty:
+            st.error(f"No data found for ticker symbol: {ticker}. Please try a valid symbol.")
+            return pd.DataFrame()
+
+        # Check for necessary columns
+        if 'Adj Close' in data.columns:
+            data.reset_index(inplace=True)
+            return data
+        elif 'Close' in data.columns:
+            st.warning("'Adj Close' column not found. Falling back to 'Close' column.")
+            data['Adj Close'] = data['Close']  # Use Close as a fallback for Adjusted Close
+            data.reset_index(inplace=True)
+            return data
+        else:
+            st.error("Neither 'Adj Close' nor 'Close' columns found in the data. Cannot proceed.")
+            return pd.DataFrame()
+    except Exception as e:
+        st.error(f"An error occurred while loading data: {str(e)}")
         return pd.DataFrame()
 
 def preprocess_data(data):
+    if 'Date' not in data.columns or 'Adj Close' not in data.columns:
+        st.error("Data preprocessing failed. Required columns 'Date' or 'Adj Close' are missing.")
+        return pd.DataFrame()
+
     # Ensure 'Date' is in datetime format
     data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-    # Check and rename columns
-    if 'Adj Close' in data.columns:
-        data = data[['Date', 'Adj Close']].rename(columns={'Date': 'ds', 'Adj Close': 'y'})
-        # Convert 'y' to numeric and handle NaNs
-        data['y'] = pd.to_numeric(data['y'], errors='coerce')
-        data.dropna(subset=['y'], inplace=True)
-    else:
-        st.error("Required column 'Adj Close' is missing.")
+
+    # Preprocess and clean data
+    data = data[['Date', 'Adj Close']].rename(columns={'Date': 'ds', 'Adj Close': 'y'})
+    data['y'] = pd.to_numeric(data['y'], errors='coerce')
+    data.dropna(subset=['y'], inplace=True)
     return data
 
 # Fit Prophet model
@@ -47,6 +64,10 @@ def make_forecasts(model, periods):
 
 # Plot interactive forecast with Plotly
 def plot_interactive_forecast(data, forecast):
+    if data.empty or forecast.empty:
+        st.error("Cannot plot interactive forecast due to empty data or forecast.")
+        return
+
     fig = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.15,
                         subplot_titles=("Stock Prices with Technical Indicators", "RSI"))
 
@@ -75,60 +96,7 @@ def plot_interactive_forecast(data, forecast):
     fig.update_layout(height=600, title='Stock Price Forecast with Technical Indicators', xaxis_title='Date', yaxis_title='Price')
     st.plotly_chart(fig)
 
-# Calculate and display technical indicators and metrics
-def calculate_metrics(data):
-    # Sharpe Ratio
-    daily_returns = data['y'].pct_change()
-    mean_return = daily_returns.mean()
-    std_dev = daily_returns.std()
-    sharpe_ratio = (mean_return / std_dev) * np.sqrt(252)
-
-    # Volatility
-    volatility = std_dev * np.sqrt(252)
-
-    # Augmented Dickey-Fuller test for stationarity
-    adf_test = adfuller(data['y'].dropna())
-    adf_statistic = adf_test[0]
-    adf_p_value = adf_test[1]
-
-    st.subheader('Technical and Statistical Metrics')
-    st.write(f"**Sharpe Ratio**: {sharpe_ratio:.2f}")
-    st.write(f"**Volatility (Annualized)**: {volatility:.2f}")
-    st.write(f"**ADF Statistic**: {adf_statistic:.2f}")
-    st.write(f"**ADF p-value**: {adf_p_value:.2f}")
-
-# Description tab
-def show_description():
-    st.markdown("""
-     ## Project Description
-    This project offers a comprehensive analysis of the S&P 500, NASDAQ, & Dow Jones indices, featuring time series forecasting using the Prophet model and various financial metrics. The analysis includes:
-
-    - **Trend Analysis**: Understanding long-term price movements.
-    - **Seasonality Effects**: Identifying periodic fluctuations.
-    - **Technical Indicators**: Such as Bollinger Bands and RSI for market momentum and volatility assessment.
-
-    ### Key Components and Mathematical Model
-    The core model, Prophet, decomposes the time series into:
-    - **Trend**: \( g(t) \) for long-term changes.
-    - **Seasonality**: \( s(t) \) for periodic fluctuations.
-    - **Error**: \( \epsilon_t \) for residuals.
-
-    The equation used is:
-    \[
-    y(t) = g(t) + s(t) + \epsilon_t
-    \]
-
-    ### Financial Analysis
-    - **Sharpe Ratio**: A measure of risk-adjusted return. A higher value indicates better risk-adjusted performance.
-    - **Volatility**: Indicates the degree of price variation and associated risk. A measure of price variability over time. Higher volatility indicates higher risk.
-    - **ADF Test**: Used to test if a time series is stationary. A more negative value indicates stronger rejection of non-stationarity.
-    - **ADF p-value**: Probability that the time series is non-stationary. A lower value indicates stronger evidence against non-stationarity.
-
-    This project aims to provide investors and analysts with an advanced toolset for making data-driven decisions based on financial and statistical analyses.
-    """)
-
-
-# Streamlit app
+# Main app
 def main():
     st.set_page_config(page_title="Advanced Stock Forecasting", layout="wide")
     st.title('Advanced Stock Market Forecasting with Prophet')
@@ -151,7 +119,6 @@ def main():
             # Preprocess data
             data = preprocess_data(data)
 
-            # Check if data is processed correctly
             if not data.empty:
                 model = fit_prophet_model(data)
 
@@ -166,15 +133,11 @@ def main():
                 # Plot interactive forecast
                 st.subheader('Interactive Forecast Plot with Technical Indicators')
                 plot_interactive_forecast(data, forecast)
-
-                # Display metrics and technical indicators
-                calculate_metrics(data)
             else:
                 st.error("Processed data is empty. Please check the data source or preprocessing steps.")
 
     elif choice == "Project Description":
-        show_description()
+        st.markdown("This is the project description.")
 
 if __name__ == '__main__':
     main()
-
