@@ -40,22 +40,28 @@ def preprocess_data(data):
         st.error("Data is empty. Cannot preprocess.")
         return pd.DataFrame()
 
-    # Ensure 'Date' and 'Adj Close' columns exist
+    # Ensure required columns exist
     if 'Date' not in data.columns or 'Adj Close' not in data.columns:
         st.error("Required columns 'Date' or 'Adj Close' are missing.")
         return pd.DataFrame()
 
-    # Convert 'Date' to datetime
-    data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
-
-    # Preprocess and clean data
     try:
+        # Convert 'Date' to datetime and rename columns
+        data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
         data = data[['Date', 'Adj Close']].rename(columns={'Date': 'ds', 'Adj Close': 'y'})
+
+        # Convert target column 'y' to numeric and drop NaN values
         data['y'] = pd.to_numeric(data['y'], errors='coerce')
         data.dropna(subset=['y'], inplace=True)
+
+        # Ensure processed data is not empty
+        if data.empty:
+            st.error("Processed data is empty after cleaning. Please check the data source or preprocessing steps.")
+            return pd.DataFrame()
+
         return data
     except KeyError as e:
-        st.error(f"Error during preprocessing: {str(e)}")
+        st.error(f"Error during preprocessing: Missing required column - {str(e)}")
         return pd.DataFrame()
 
 # Fit Prophet model
