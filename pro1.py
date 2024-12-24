@@ -19,13 +19,13 @@ def load_data(ticker):
             st.error(f"No data found for ticker symbol: {ticker}. Please try a valid symbol.")
             return pd.DataFrame()
 
-        # Check for necessary columns
+        # Ensure required columns are present
         if 'Adj Close' in data.columns:
             data.reset_index(inplace=True)
             return data
         elif 'Close' in data.columns:
-            st.warning("'Adj Close' column not found. Falling back to 'Close' column.")
-            data['Adj Close'] = data['Close']  # Use Close as a fallback for Adjusted Close
+            # Use 'Close' as the main column if 'Adj Close' is missing
+            data['Adj Close'] = data['Close']
             data.reset_index(inplace=True)
             return data
         else:
@@ -36,18 +36,27 @@ def load_data(ticker):
         return pd.DataFrame()
 
 def preprocess_data(data):
-    if 'Date' not in data.columns or 'Adj Close' not in data.columns:
-        st.error("Data preprocessing failed. Required columns 'Date' or 'Adj Close' are missing.")
+    if data.empty:
+        st.error("Data is empty. Cannot preprocess.")
         return pd.DataFrame()
 
-    # Ensure 'Date' is in datetime format
+    # Ensure 'Date' and 'Adj Close' columns exist
+    if 'Date' not in data.columns or 'Adj Close' not in data.columns:
+        st.error("Required columns 'Date' or 'Adj Close' are missing.")
+        return pd.DataFrame()
+
+    # Convert 'Date' to datetime
     data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
 
     # Preprocess and clean data
-    data = data[['Date', 'Adj Close']].rename(columns={'Date': 'ds', 'Adj Close': 'y'})
-    data['y'] = pd.to_numeric(data['y'], errors='coerce')
-    data.dropna(subset=['y'], inplace=True)
-    return data
+    try:
+        data = data[['Date', 'Adj Close']].rename(columns={'Date': 'ds', 'Adj Close': 'y'})
+        data['y'] = pd.to_numeric(data['y'], errors='coerce')
+        data.dropna(subset=['y'], inplace=True)
+        return data
+    except KeyError as e:
+        st.error(f"Error during preprocessing: {str(e)}")
+        return pd.DataFrame()
 
 # Fit Prophet model
 def fit_prophet_model(data):
@@ -135,9 +144,6 @@ def main():
                 plot_interactive_forecast(data, forecast)
             else:
                 st.error("Processed data is empty. Please check the data source or preprocessing steps.")
-
-    elif choice == "Project Description":
-        st.markdown("This is the project description.")
 
 if __name__ == '__main__':
     main()
